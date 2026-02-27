@@ -1,0 +1,171 @@
+{% extends "dsd/base.html" %}
+
+{% block title %}Pending Changes{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">Pending Changes</div>
+        <div class="page-subtitle">Review and approve vendor cost changes</div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="get" class="flex items-center gap-16" style="flex-wrap:wrap;">
+        <div class="flex items-center gap-8">
+            <label>Vendor</label>
+            <select name="vendor" onchange="this.form.submit()">
+                <option value="">All Vendors</option>
+                {% for v in vendors %}
+                <option value="{{ v.vendor_code }}"
+                    {% if vendor_filter == v.vendor_code %}selected{% endif %}>
+                    {{ v.vendor_code }} — {{ v.vendor_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-8">
+            <label>Status</label>
+            <select name="status" onchange="this.form.submit()">
+                {% for val, label in status_choices %}
+                <option value="{{ val }}"
+                    {% if status_filter == val %}selected{% endif %}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    <div style="margin-left:auto;font-size:12px;color:var(--text-muted);font-family:var(--mono)">
+        {{ changes.count }} record{{ changes.count|pluralize }}
+    </div>
+</div>
+
+<!-- Changes Table -->
+<div class="card">
+    {% if changes %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vendor</th>
+                    <th>Item</th>
+                    <th>UPC</th>
+                    <th class="right">Old Cost</th>
+                    <th class="right">New Cost</th>
+                    <th class="right">Suggested</th>
+                    <th class="right">Approved Retail</th>
+                    <th class="right">Eff. Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for change in changes %}
+                <tr class="{% if change.effective_date <= today and change.status == 'APPROVED' %}row-pending{% endif %}">
+                    <td>
+                        <div class="mono" style="font-size:11px;color:var(--accent)">
+                            {{ change.vendor_code }}
+                        </div>
+                    </td>
+                    <td>
+                        <a href="{% url 'dsd:item_detail' change.vendor_code change.upc %}"
+                           style="color:var(--text);text-decoration:none;font-size:12px;">
+                            {{ change.item.description|truncatechars:35 }}
+                        </a>
+                        {% if change.item.link_group %}
+                        <div style="font-size:11px;color:var(--text-muted)">
+                            {{ change.item.link_group.link_group_name }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="mono muted" style="font-size:11px;">{{ change.upc }}</td>
+
+                    <td class="right mono" style="font-size:12px;">
+                        ${{ change.prev_case_cost|default:"-" }}
+                    </td>
+                    <td class="right mono" style="font-size:12px;">
+                        ${{ change.new_case_cost }}
+                        {% if change.cost_change_pct %}
+                        <div style="font-size:10px;
+                            {% if change.cost_change_pct > 0 %}color:var(--danger)
+                            {% else %}color:var(--success){% endif %}">
+                            {% if change.cost_change_pct > 0 %}+{% endif %}
+                            {{ change.cost_change_pct|floatformat:1 }}%
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="right mono" style="font-size:12px;color:var(--text-muted)">
+                        {% if change.suggested_retail %}${{ change.suggested_retail }}{% else %}—{% endif %}
+                    </td>
+                    <td class="right mono" style="font-size:12px;font-weight:600;">
+                        {% if change.approved_retail %}
+                        ${{ change.approved_retail }}
+                        {% if change.approved_retail != change.suggested_retail %}
+                        <div style="font-size:10px;color:var(--warning)">overridden</div>
+                        {% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="right mono" style="font-size:11px;
+                        {% if change.effective_date <= today %}color:var(--warning){% endif %}">
+                        {{ change.effective_date|date:"m/d/y" }}
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ change.status|lower }}">
+                            {{ change.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex gap-8">
+                            {% if change.status == 'PENDING' %}
+                            <form method="post"
+                                  action="{% url 'dsd:approve_change' change.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="approve">
+                                <input type="hidden" name="next"
+                                       value="{{ request.get_full_path }}">
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    Approve
+                                </button>
+                            </form>
+                            <form method="post"
+                                  action="{% url 'dsd:approve_change' change.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject">
+                                <input type="hidden" name="next"
+                                       value="{{ request.get_full_path }}">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    Reject
+                                </button>
+                            </form>
+                            {% elif change.status == 'APPROVED' %}
+                            <form method="post"
+                                  action="{% url 'dsd:apply_change' change.id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next"
+                                       value="{{ request.get_full_path }}">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    Apply
+                                </button>
+                            </form>
+                            {% endif %}
+                            <a href="{% url 'dsd:cost_change_entry' change.vendor_code change.upc %}"
+                               class="btn btn-secondary btn-sm">Edit</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card-body" style="text-align:center;padding:48px;color:var(--text-muted);">
+        <div style="font-size:32px;margin-bottom:12px;">✓</div>
+        <div style="font-size:14px;">No {{ status_filter|lower }} changes found.</div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

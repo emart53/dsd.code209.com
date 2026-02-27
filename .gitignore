@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+.env
+*.log
+stderr.log
+*.csv
+*.sqlite3
+/tmp/
+/public/
+/.well-known/
+/cgi-bin/

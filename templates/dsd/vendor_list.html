@@ -1,0 +1,68 @@
+{% extends "dsd/base.html" %}
+
+{% block title %}Price Books{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">Price Books</div>
+        <div class="page-subtitle">{{ vendors.count }} active DSD vendor{{ vendors.count|pluralize }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Vendor Code</th>
+                    <th>Vendor Name</th>
+                    <th>Contact</th>
+                    <th>Method</th>
+                    <th class="right">Items</th>
+                    <th class="right">Target GM%</th>
+                    <th class="right">Pending</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vendor in vendors %}
+                <tr>
+                    <td class="mono" style="color:var(--accent);font-size:12px;">
+                        {{ vendor.vendor_code }}
+                    </td>
+                    <td style="font-weight:500;">{{ vendor.vendor_name }}</td>
+                    <td class="muted" style="font-size:12px;">
+                        {% if vendor.rep_name %}{{ vendor.rep_name }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if vendor.comm_method %}
+                        <span class="badge badge-applied">{{ vendor.comm_method }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="right mono">{{ vendor.item_count }}</td>
+                    <td class="right mono">
+                        {{ vendor.target_margin|floatformat:1 }}%
+                    </td>
+                    <td class="right">
+                        {% if vendor.pending_count %}
+                        <span class="badge badge-pending">{{ vendor.pending_count }}</span>
+                        {% else %}
+                        <span class="text-muted" style="font-size:12px;">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="right">
+                        <a href="{% url 'dsd:price_book' vendor.vendor_code %}"
+                           class="btn btn-secondary btn-sm">
+                            Open →
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,307 @@
+{% extends "dsd/base.html" %}
+
+{% block title %}{{ item.description }}{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="flex items-center gap-8 mb-16" style="font-size:12px;color:var(--text-muted);">
+    <a href="{% url 'dsd:vendor_list' %}" style="color:var(--text-muted);text-decoration:none;">
+        Price Books
+    </a>
+    <span>›</span>
+    <a href="{% url 'dsd:price_book' item.vendor_id %}"
+       style="color:var(--text-muted);text-decoration:none;">
+        {{ item.vendor_id }}
+    </a>
+    <span>›</span>
+    <span style="color:var(--text);">{{ item.upc }}</span>
+</div>
+
+<!-- Header -->
+<div class="page-header">
+    <div>
+        <div class="page-title">{{ item.description }}</div>
+        <div class="page-subtitle flex gap-16" style="margin-top:4px;">
+            <span class="mono" style="color:var(--accent);">{{ item.upc }}</span>
+            {% if item.brdata_item_no %}
+            <span>BRData# {{ item.brdata_item_no }}</span>
+            {% endif %}
+            {% if item.size_alpha %}<span>{{ item.size_alpha }}</span>{% endif %}
+            {% if item.link_group %}
+            <span>{{ item.link_group.link_group_name }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="flex gap-8">
+        <a href="{% url 'dsd:cost_change_entry' item.vendor_id item.upc %}"
+           class="btn btn-primary">
+            {% if pending %}Edit Cost Change{% else %}Enter Cost Change{% endif %}
+        </a>
+    </div>
+</div>
+
+<div class="grid-2">
+
+    <!-- Current Pricing -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Current Pricing</span>
+            {% if item.last_cost_change %}
+            <span style="font-size:11px;color:var(--text-muted);font-family:var(--mono);">
+                Cost changed {{ item.last_cost_change|date:"m/d/Y" }}
+            </span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <table style="width:100%;">
+                <tbody>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;width:140px;">Case Pack</td>
+                        <td class="mono" style="font-size:13px;">{{ item.case_pack }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Case Cost</td>
+                        <td class="mono" style="font-size:13px;">${{ item.case_cost }}</td>
+                    </tr>
+                    {% if item.allowance %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Allowance</td>
+                        <td class="mono" style="font-size:13px;color:var(--success);">
+                            -${{ item.allowance }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Net Case Cost</td>
+                        <td class="mono" style="font-size:13px;">${{ item.net_case_cost }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Unit Cost</td>
+                        <td class="mono" style="font-size:13px;">
+                            {% if item.unit_cost %}${{ item.unit_cost|floatformat:4 }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr style="border-top:1px solid var(--border);">
+                        <td style="padding:10px 0 6px;color:var(--text-muted);font-size:12px;">Retail Price</td>
+                        <td class="mono" style="font-size:16px;font-weight:600;padding-top:10px;">
+                            {% if item.retail_price %}${{ item.retail_price }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Gross Margin</td>
+                        <td style="font-size:15px;font-weight:600;font-family:var(--mono);">
+                            <span class="{% if item.margin %}
+                                {% if item.margin >= 0.25 %}text-success
+                                {% elif item.margin >= 0.20 %}text-warning
+                                {% else %}text-danger{% endif %}
+                            {% endif %}">
+                                {{ item.margin_pct }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% if item.last_price_change %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Last Price Change</td>
+                        <td class="mono muted" style="font-size:12px;">
+                            {{ item.last_price_change|date:"m/d/Y" }}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pending Cost Change -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Pending Cost Change</span>
+            {% if pending %}
+            <span class="badge badge-{{ pending.status|lower }}">
+                {{ pending.get_status_display }}
+            </span>
+            {% endif %}
+        </div>
+        {% if pending %}
+        <div class="card-body">
+            <table style="width:100%;">
+                <tbody>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;width:140px;">New Case Cost</td>
+                        <td class="mono" style="font-size:13px;">${{ pending.new_case_cost }}</td>
+                    </tr>
+                    {% if pending.new_allowance %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">New Allowance</td>
+                        <td class="mono" style="font-size:13px;color:var(--success);">
+                            -${{ pending.new_allowance }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Net Case Cost</td>
+                        <td class="mono" style="font-size:13px;">${{ pending.new_net_case_cost }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">New Unit Cost</td>
+                        <td class="mono" style="font-size:13px;">
+                            {% if pending.new_unit_cost %}
+                            ${{ pending.new_unit_cost|floatformat:4 }}
+                            {% if pending.cost_change_pct %}
+                            <span style="font-size:10px;
+                                {% if pending.cost_change_pct > 0 %}color:var(--danger)
+                                {% else %}color:var(--success){% endif %}">
+                                ({% if pending.cost_change_pct > 0 %}+{% endif %}{{ pending.cost_change_pct|floatformat:1 }}%)
+                            </span>
+                            {% endif %}
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr style="border-top:1px solid var(--border);">
+                        <td style="padding:10px 0 6px;color:var(--text-muted);font-size:12px;">Suggested Retail</td>
+                        <td class="mono" style="font-size:14px;padding-top:10px;color:var(--text-muted);">
+                            {% if pending.suggested_retail %}${{ pending.suggested_retail }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Approved Retail</td>
+                        <td class="mono" style="font-size:16px;font-weight:600;">
+                            {% if pending.approved_retail %}
+                            ${{ pending.approved_retail }}
+                            {% if pending.retail_is_overridden %}
+                            <span style="font-size:10px;color:var(--warning);">overridden</span>
+                            {% endif %}
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Effective Date</td>
+                        <td class="mono" style="font-size:13px;">
+                            {{ pending.effective_date|date:"m/d/Y" }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Source</td>
+                        <td style="font-size:12px;">{{ pending.get_change_source_display }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {% if pending.status == 'PENDING' %}
+            <div class="flex gap-8 mt-16">
+                <form method="post" action="{% url 'dsd:approve_change' pending.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <input type="hidden" name="next"
+                           value="{% url 'dsd:item_detail' item.vendor_id item.upc %}">
+                    <button type="submit" class="btn btn-success">Approve</button>
+                </form>
+                <form method="post" action="{% url 'dsd:approve_change' pending.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reject">
+                    <input type="hidden" name="next"
+                           value="{% url 'dsd:item_detail' item.vendor_id item.upc %}">
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                </form>
+                <a href="{% url 'dsd:cost_change_entry' item.vendor_id item.upc %}"
+                   class="btn btn-secondary">Edit</a>
+            </div>
+            {% elif pending.status == 'APPROVED' %}
+            <div class="flex gap-8 mt-16">
+                <form method="post" action="{% url 'dsd:apply_change' pending.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next"
+                           value="{% url 'dsd:item_detail' item.vendor_id item.upc %}">
+                    <button type="submit" class="btn btn-primary">Apply to Item</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="card-body text-muted" style="font-size:13px;padding:32px 18px;">
+            No pending cost change.
+            <a href="{% url 'dsd:cost_change_entry' item.vendor_id item.upc %}"
+               style="color:var(--accent);">Enter one →</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Change History -->
+<div class="card mt-24">
+    <div class="card-header">
+        <span class="card-title">Change History</span>
+        <span style="font-size:11px;color:var(--text-muted);font-family:var(--mono);">
+            Last 20 records
+        </span>
+    </div>
+    {% if history %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th class="right">Old Case Cost</th>
+                    <th class="right">New Case Cost</th>
+                    <th class="right">Old Retail</th>
+                    <th class="right">New Retail</th>
+                    <th class="right">Old GM%</th>
+                    <th class="right">New GM%</th>
+                    <th>By</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in history %}
+                <tr>
+                    <td class="mono muted" style="font-size:11px;">
+                        {{ h.change_date|date:"m/d/Y H:i" }}
+                    </td>
+                    <td>
+                        <span class="badge
+                            {% if h.change_type == 'COST_AND_PRICE' %}badge-applied
+                            {% elif h.change_type == 'COST_ONLY' %}badge-pending
+                            {% else %}badge-tpr{% endif %}">
+                            {{ h.get_change_type_display }}
+                        </span>
+                    </td>
+                    <td class="right mono" style="font-size:11px;">
+                        {% if h.old_case_cost %}${{ h.old_case_cost }}{% else %}—{% endif %}
+                    </td>
+                    <td class="right mono" style="font-size:11px;">
+                        {% if h.new_case_cost %}${{ h.new_case_cost }}{% else %}—{% endif %}
+                    </td>
+                    <td class="right mono" style="font-size:11px;">
+                        {% if h.old_retail %}${{ h.old_retail }}{% else %}—{% endif %}
+                    </td>
+                    <td class="right mono text-success" style="font-size:11px;font-weight:600;">
+                        {% if h.new_retail %}${{ h.new_retail }}{% else %}—{% endif %}
+                    </td>
+                    <td class="right mono muted" style="font-size:11px;">
+                        {% if h.old_margin %}{{ h.old_margin|floatformat:1 }}%{% else %}—{% endif %}
+                    </td>
+                    <td class="right mono" style="font-size:11px;">
+                        {% if h.new_margin %}{{ h.new_margin|floatformat:1 }}%{% else %}—{% endif %}
+                    </td>
+                    <td class="muted" style="font-size:11px;">
+                        {{ h.changed_by|default:"—" }}
+                    </td>
+                    <td class="muted" style="font-size:11px;">
+                        {{ h.get_change_source_display }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card-body text-muted" style="font-size:13px;">
+        No change history recorded yet.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

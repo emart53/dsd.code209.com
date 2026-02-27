@@ -1,0 +1,187 @@
+{% extends "dsd/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">{{ today|date:"l, F j, Y" }}</div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Active Vendors</div>
+        <div class="stat-value info">{{ vendor_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Active Items</div>
+        <div class="stat-value">{{ item_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Pending Changes</div>
+        <div class="stat-value {% if pending_count %}accent{% endif %}">
+            {{ pending_count }}
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Due for Export</div>
+        <div class="stat-value {% if due_today_count %}danger{% endif %}">
+            {{ due_today_count }}
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+
+    <!-- Vendors with Pending Changes -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Vendors Awaiting Review</span>
+            <a href="{% url 'dsd:pending_changes' %}" class="btn btn-secondary btn-sm">
+                View All
+            </a>
+        </div>
+        {% if vendors_with_pending %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th class="right">Pending</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vendor in vendors_with_pending %}
+                    <tr>
+                        <td>
+                            <div class="mono" style="font-size:12px;color:var(--accent)">
+                                {{ vendor.vendor_code }}
+                            </div>
+                            <div style="font-size:12px;color:var(--text-muted)">
+                                {{ vendor.vendor_name }}
+                            </div>
+                        </td>
+                        <td class="right">
+                            <span class="badge badge-pending">{{ vendor.pending }}</span>
+                        </td>
+                        <td class="right">
+                            <a href="{% url 'dsd:price_book' vendor.vendor_code %}"
+                               class="btn btn-secondary btn-sm">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="card-body text-muted" style="font-size:13px;">
+            No pending changes. All price books are current.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Due for Export -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Ready for BRData Export</span>
+            {% if due_today_count %}
+            <a href="{% url 'dsd:brdata_export' %}"
+               onclick="return confirm('Export {{ due_today_count }} approved changes to BRData?')"
+               class="btn btn-primary btn-sm">
+                Export Now
+            </a>
+            {% endif %}
+        </div>
+        {% if due_changes %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="right">New Retail</th>
+                        <th class="right">Eff. Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for change in due_changes %}
+                    <tr>
+                        <td>
+                            <div style="font-size:12px;">
+                                {{ change.item.description|truncatechars:30 }}
+                            </div>
+                            <div class="mono" style="font-size:11px;color:var(--text-muted)">
+                                {{ change.vendor_code }}
+                            </div>
+                        </td>
+                        <td class="right mono">${{ change.approved_retail }}</td>
+                        <td class="right mono" style="font-size:11px;
+                            {% if change.effective_date < today %}color:var(--danger){% endif %}">
+                            {{ change.effective_date|date:"m/d/y" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="card-body text-muted" style="font-size:13px;">
+            No approved changes pending export.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Recent Activity -->
+<div class="card mt-24">
+    <div class="card-header">
+        <span class="card-title">Recent Price Changes</span>
+    </div>
+    {% if recent_history %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Vendor</th>
+                    <th>Item</th>
+                    <th class="right">Old Cost</th>
+                    <th class="right">New Cost</th>
+                    <th class="right">Old Retail</th>
+                    <th class="right">New Retail</th>
+                    <th>By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in recent_history %}
+                <tr>
+                    <td class="mono muted" style="font-size:11px;">
+                        {{ h.change_date|date:"m/d/y H:i" }}
+                    </td>
+                    <td class="mono" style="font-size:11px;color:var(--accent)">
+                        {{ h.vendor_code }}
+                    </td>
+                    <td style="font-size:12px;">{{ h.upc }}</td>
+                    <td class="right mono">${{ h.old_case_cost|default:"-" }}</td>
+                    <td class="right mono">${{ h.new_case_cost|default:"-" }}</td>
+                    <td class="right mono">${{ h.old_retail|default:"-" }}</td>
+                    <td class="right mono text-success">${{ h.new_retail|default:"-" }}</td>
+                    <td class="muted" style="font-size:11px;">{{ h.changed_by|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card-body text-muted" style="font-size:13px;">
+        No price changes recorded yet.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends "dsd/base.html" %}
+
+{% block title %}Cost Change — {{ item.description }}{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div class="flex items-center gap-8 mb-16" style="font-size:12px;color:var(--text-muted);">
+    <a href="{% url 'dsd:vendor_list' %}" style="color:var(--text-muted);text-decoration:none;">
+        Price Books
+    </a>
+    <span>›</span>
+    <a href="{% url 'dsd:price_book' item.vendor_id %}"
+       style="color:var(--text-muted);text-decoration:none;">
+        {{ item.vendor_id }}
+    </a>
+    <span>›</span>
+    <a href="{% url 'dsd:item_detail' item.vendor_id item.upc %}"
+       style="color:var(--text-muted);text-decoration:none;">
+        {{ item.upc }}
+    </a>
+    <span>›</span>
+    <span style="color:var(--accent);">Cost Change</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <div class="page-title">
+            {% if existing %}Edit Cost Change{% else %}Enter Cost Change{% endif %}
+        </div>
+        <div class="page-subtitle">
+            <span style="color:var(--accent);font-family:var(--mono);">{{ item.vendor_id }}</span>
+            &nbsp;·&nbsp; {{ item.description }}
+            &nbsp;·&nbsp; {{ item.upc }}
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+
+    <!-- Current Pricing (read-only reference) -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Current Pricing</span>
+        </div>
+        <div class="card-body">
+            <table style="width:100%;">
+                <tbody>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;width:130px;">Case Pack</td>
+                        <td class="mono" id="ref-casepack">{{ item.case_pack }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Case Cost</td>
+                        <td class="mono">${{ item.case_cost }}</td>
+                    </tr>
+                    {% if item.allowance %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Allowance</td>
+                        <td class="mono" style="color:var(--success);">-${{ item.allowance }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Unit Cost</td>
+                        <td class="mono">
+                            {% if item.unit_cost %}${{ item.unit_cost|floatformat:4 }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr style="border-top:1px solid var(--border);">
+                        <td style="padding:10px 0 6px;color:var(--text-muted);font-size:12px;">Retail</td>
+                        <td class="mono" style="font-size:16px;font-weight:600;padding-top:10px;">
+                            {% if item.retail_price %}${{ item.retail_price }}{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 0;color:var(--text-muted);font-size:12px;">Gross Margin</td>
+                        <td class="mono" style="font-size:15px;font-weight:600;"
+                            id="ref-margin"
+                            data-margin="{{ item.margin|default:item.vendor.target_margin }}">
+                            {{ item.margin_pct }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Cost Change Entry Form -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">New Cost Details</span>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="new_case_cost">New Case Cost *</label>
+                    <input type="number" id="new_case_cost" name="new_case_cost"
+                           step="0.01" min="0" required
+                           value="{{ existing.new_case_cost|default:'' }}"
+                           placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="new_allowance">New Allowance (if applicable)</label>
+                    <input type="number" id="new_allowance" name="new_allowance"
+                           step="0.01" min="0"
+                           value="{{ existing.new_allowance|default:'0.00' }}"
+                           placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="effective_date">Effective Date *</label>
+                    <input type="date" id="effective_date" name="effective_date"
+                           required
+                           value="{{ existing.effective_date|date:'Y-m-d'|default:today|date:'Y-m-d' }}">
+                </div>
+
+                <!-- Live Suggested Retail Calculator -->
+                <div style="background:var(--surface2);border:1px solid var(--border);
+                            border-radius:6px;padding:16px;margin-bottom:18px;">
+                    <div style="font-size:11px;font-family:var(--mono);color:var(--text-muted);
+                                text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;">
+                        Suggested Retail Calculator
+                    </div>
+                    <div class="flex gap-16" style="margin-bottom:8px;">
+                        <div>
+                            <div style="font-size:10px;color:var(--text-muted);font-family:var(--mono);">
+                                NEW UNIT COST
+                            </div>
+                            <div class="mono" style="font-size:18px;font-weight:600;"
+                                 id="calc-unit-cost">—</div>
+                        </div>
+                        <div style="font-size:20px;color:var(--text-muted);padding-top:14px;">→</div>
+                        <div>
+                            <div style="font-size:10px;color:var(--text-muted);font-family:var(--mono);">
+                                SUGGESTED RETAIL
+                            </div>
+                            <div class="mono" style="font-size:22px;font-weight:600;color:var(--accent);"
+                                 id="calc-suggested">—</div>
+                        </div>
+                        <div>
+                            <div style="font-size:10px;color:var(--text-muted);font-family:var(--mono);">
+                                RESULTING GM%
+                            </div>
+                            <div class="mono" style="font-size:18px;font-weight:600;color:var(--success);"
+                                 id="calc-margin">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="approved_retail">
+                        Approved Retail
+                        <span style="font-weight:400;color:var(--text-muted);">
+                            (leave blank to use suggested)
+                        </span>
+                    </label>
+                    <input type="number" id="approved_retail" name="approved_retail"
+                           step="0.01" min="0"
+                           value="{{ existing.approved_retail|default:'' }}"
+                           placeholder="Uses suggested retail if blank">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" rows="2"
+                              placeholder="Optional notes about this cost change">{{ existing.notes|default:'' }}</textarea>
+                </div>
+
+                <div class="flex gap-8">
+                    <button type="submit" class="btn btn-primary">
+                        {% if existing %}Update Cost Change{% else %}Save Cost Change{% endif %}
+                    </button>
+                    <a href="{% url 'dsd:item_detail' item.vendor_id item.upc %}"
+                       class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Live suggested retail calculator
+    // Mirrors the suggest_retail() Python function in pricing.py
+
+    const casePack  = {{ item.case_pack }};
+    const margin    = parseFloat(
+        document.getElementById('ref-margin').dataset.margin || '0.28'
+    );
+
+    function suggestRetail(unitCost, currentMargin) {
+        if (!unitCost || unitCost <= 0 || currentMargin <= 0 || currentMargin >= 1) {
+            return null;
+        }
+        const theoretical = unitCost / (1 - currentMargin);
+        const theoreticalCents = Math.floor(theoretical * 100);
+        const remainder = theoreticalCents % 10;
+        let suggestedCents;
+        if (remainder <= 8) {
+            suggestedCents = theoreticalCents - remainder + 8;
+        } else {
+            suggestedCents = theoreticalCents - remainder + 18;
+        }
+        if (suggestedCents < theoreticalCents) suggestedCents += 10;
+        return suggestedCents / 100;
+    }
+
+    function calcMargin(retail, unitCost) {
+        if (!retail || !unitCost || retail <= 0) return null;
+        return (retail - unitCost) / retail;
+    }
+
+    function updateCalc() {
+        const caseCost   = parseFloat(document.getElementById('new_case_cost').value) || 0;
+        const allowance  = parseFloat(document.getElementById('new_allowance').value) || 0;
+        const netCase    = caseCost - allowance;
+        const unitCost   = casePack > 0 ? netCase / casePack : 0;
+
+        const unitEl      = document.getElementById('calc-unit-cost');
+        const suggestEl   = document.getElementById('calc-suggested');
+        const marginEl    = document.getElementById('calc-margin');
+
+        if (unitCost <= 0) {
+            unitEl.textContent    = '—';
+            suggestEl.textContent = '—';
+            marginEl.textContent  = '—';
+            return;
+        }
+
+        const suggested = suggestRetail(unitCost, margin);
+        const gm        = suggested ? calcMargin(suggested, unitCost) : null;
+
+        unitEl.textContent    = '$' + unitCost.toFixed(4);
+        suggestEl.textContent = suggested ? '$' + suggested.toFixed(2) : '—';
+        marginEl.textContent  = gm ? (gm * 100).toFixed(1) + '%' : '—';
+
+        // Auto-fill approved retail if it's empty
+        const approvedField = document.getElementById('approved_retail');
+        if (!approvedField.value && suggested) {
+            approvedField.placeholder = '$' + suggested.toFixed(2) + ' (suggested)';
+        }
+    }
+
+    document.getElementById('new_case_cost').addEventListener('input', updateCalc);
+    document.getElementById('new_allowance').addEventListener('input', updateCalc);
+
+    // Run on load if editing existing change
+    updateCalc();
+</script>
+{% endblock %}
